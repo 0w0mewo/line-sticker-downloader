@@ -3,8 +3,6 @@ package linesticker
 import (
 	"context"
 	"fmt"
-	"image/gif"
-	"image/png"
 	"io"
 	"net/http"
 	"os"
@@ -63,9 +61,10 @@ func (wk *Fetcher) GetPackId() int {
 }
 
 // fetch stickers package and save it to saveToDir
-func (wk *Fetcher) SaveStickers(saveToDir string) {
+func (wk *Fetcher) SaveStickers(saveToDir string, qqTrans ...bool) {
 	packid := wk.pack.PackageId
 	animated := wk.pack.HasGif
+	qqTransparent := len(qqTrans) > 0 && qqTrans[0] // support for transparency when import to qq
 
 	stickerStorer := func(r io.Reader, s *Sticker) error {
 		var fileExt string
@@ -75,7 +74,7 @@ func (wk *Fetcher) SaveStickers(saveToDir string) {
 			fileExt = "gif"
 			folderName = "animated"
 		} else {
-			fileExt = "gif"
+			fileExt = "png"
 			folderName = "not-animated"
 		}
 
@@ -95,19 +94,12 @@ func (wk *Fetcher) SaveStickers(saveToDir string) {
 		}
 		defer fd.Close()
 
-		// convert to gif, regardless it is animated or not
-		if animated {
+		if animated || !qqTransparent {
 			_, err = io.Copy(fd, r)
 			return err
 		} else {
-
-			pngImg, err := png.Decode(r)
-			if err != nil {
-				return err
-			}
-
-			return gif.Encode(fd, pngImg, nil)
-
+			// qq only recognises transparency background while the image format is gif
+			return utils.PngToGif(fd, r)
 		}
 
 	}

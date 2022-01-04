@@ -18,6 +18,7 @@ import (
 
 var dir string
 var packs string
+var qqTrans bool
 
 func init() {
 	log.SetFormatter(
@@ -29,6 +30,7 @@ func init() {
 
 	flag.StringVar(&dir, "path", ".", "where zipped sticker packages saved")
 	flag.StringVar(&packs, "packs", "", "list of sticker packs (splited by ','), e.g.: 1234,5678,9000")
+	flag.BoolVar(&qqTrans, "qqtrans", false, "whether support transparency of non-animated when import to qq")
 	flag.Parse()
 
 }
@@ -58,7 +60,7 @@ func main() {
 			stickerPack := linesticker.NewFetcher(ctx, http.DefaultClient)
 
 			stickerPack.SetPackId(pack)
-			stickerPack.SaveStickers(filepath.Join(tempDir, strconv.Itoa(pack)))
+			stickerPack.SaveStickers(filepath.Join(tempDir, strconv.Itoa(pack)), qqTrans)
 		}(packid)
 	}
 
