@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -52,16 +51,15 @@ func main() {
 	defer os.RemoveAll(tempDir)
 
 	// fetch list of sticker packages
-	stickerPack := linesticker.NewFetcher(ctx, http.DefaultClient)
 	for _, packid := range packIds {
 		wg.Add(1)
 		go func(pack int) {
 			defer wg.Done()
+			stickerPack := linesticker.NewFetcher(ctx, http.DefaultClient)
 
 			stickerPack.SetPackId(pack)
-			stickerPack.SaveStickers(path.Join(tempDir, strconv.Itoa(pack)))
+			stickerPack.SaveStickers(filepath.Join(tempDir, strconv.Itoa(pack)))
 		}(packid)
-
 	}
 
 	wg.Wait()

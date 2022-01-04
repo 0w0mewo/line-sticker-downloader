@@ -34,6 +34,7 @@ func NewFetcher(ctx context.Context, client *http.Client) *Fetcher {
 	ret := &Fetcher{
 		client: client,
 		logger: logger,
+		ctx:    ctx,
 	}
 
 	return ret
