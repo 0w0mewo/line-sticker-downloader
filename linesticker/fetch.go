@@ -1,6 +1,7 @@
 package linesticker
 
 import (
+	"archive/zip"
 	"context"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/0w0mewo/line-sticker-downloader/utils"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -61,45 +63,53 @@ func (wk *Fetcher) GetPackId() int {
 }
 
 // fetch stickers package and save it to saveToDir
-func (wk *Fetcher) SaveStickers(saveToDir string, qqTrans ...bool) {
+func (wk *Fetcher) SaveStickers(zipName string, qqTrans ...bool) {
 	packid := wk.pack.PackageId
 	animated := wk.pack.HasGif
 	qqTransparent := len(qqTrans) > 0 && qqTrans[0] // support for transparency when import to qq
 
+	// check if the given path to zip file has extension of zip
+	// add the extension if not
+	if filepath.Ext(zipName) != ".zip" {
+		zipName = zipName + ".zip"
+	}
+
+	// create zip file for storing stickers
+	fd, err := os.Create(zipName)
+	if err != nil {
+		wk.logger.Errorln(err)
+		return
+	}
+	defer fd.Close()
+
+	zipper := zip.NewWriter(fd)
+	defer zipper.Close()
+
+	// process downloaded sticker
 	stickerStorer := func(r io.Reader, s *Sticker) error {
-		var fileExt string
 		var folderName string
 
 		if animated {
-			fileExt = "gif"
 			folderName = "animated"
 		} else {
-			fileExt = "png"
 			folderName = "not-animated"
 		}
 
-		stickerFolder := filepath.Join(saveToDir, folderName)
-		path := filepath.Join(stickerFolder, strconv.Itoa(s.Id)+"."+fileExt)
+		// path: ./<packid>/<animated | not-animated>/<sticker>.<png | gif>
+		stickerFolder := filepath.Join(".", folderName)
+		path := filepath.Join(strconv.Itoa(packid), stickerFolder, s.Key(animated))
 
-		// make dir to store stickers
-		err := os.MkdirAll(stickerFolder, 0o755)
+		zfd, err := zipper.Create(path)
 		if err != nil {
 			return err
 		}
-
-		// open file for writing sticker bytes
-		fd, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0640)
-		if err != nil {
-			return err
-		}
-		defer fd.Close()
 
 		if animated || !qqTransparent {
-			_, err = io.Copy(fd, r)
+			_, err = io.Copy(zfd, r)
 			return err
 		} else {
 			// qq only recognises transparency background while the image format is gif
-			return utils.PngToGif(fd, r)
+			return utils.PngToGif(zfd, r)
 		}
 
 	}

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/0w0mewo/line-sticker-downloader/linesticker"
-	"github.com/0w0mewo/line-sticker-downloader/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -46,34 +44,27 @@ func main() {
 		return
 	}
 
-	tempDir, err := ioutil.TempDir(".", "sticker-*")
-	if err != nil {
-		log.Panicln(err)
-	}
-	defer os.RemoveAll(tempDir)
-
 	// fetch list of sticker packages
 	for _, packid := range packIds {
 		wg.Add(1)
 		go func(pack int) {
 			defer wg.Done()
-			stickerPack := linesticker.NewFetcher(ctx, http.DefaultClient)
 
+			// fetch only when the sticker package is not cached
+			zipfilePath := filepath.Join(dir, strconv.Itoa(pack)+".zip")
+			if isZipFileExist(zipfilePath) {
+				log.Infof("%d is cached to %s", pack, dir)
+				return
+			}
+
+			stickerPack := linesticker.NewFetcher(ctx, http.DefaultClient)
 			stickerPack.SetPackId(pack)
-			stickerPack.SaveStickers(filepath.Join(tempDir, strconv.Itoa(pack)), qqTrans)
+			stickerPack.SaveStickers(zipfilePath, qqTrans)
 		}(packid)
 	}
 
 	wg.Wait()
 	cancel()
-
-	// zipping downloaded stickers
-	z := utils.NewZip(filepath.Join(dir, filepath.Base(tempDir)))
-	if err := z.Zip(tempDir); err != nil {
-		log.Error(err)
-		return
-	}
-	defer z.Close()
 
 	log.Info("exit...")
 
@@ -92,4 +83,15 @@ func parsePackList(packs string) ([]int, error) {
 	}
 
 	return packids, nil
+}
+
+func isZipFileExist(path string) bool {
+	zipf, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+
+	_, exist := os.Stat(zipf)
+
+	return exist == nil
 }

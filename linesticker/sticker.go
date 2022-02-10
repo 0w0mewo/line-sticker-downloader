@@ -25,8 +25,15 @@ type Sticker struct {
 	Id     int `json:"id"`
 }
 
-func (s *Sticker) Key() string {
-	return fmt.Sprintf("%d", s.Id)
+func (s *Sticker) Key(animated bool) string {
+	var fileExt string
+	if animated {
+		fileExt = "gif"
+	} else {
+		fileExt = "png"
+	}
+
+	return fmt.Sprintf("%d.%s", s.Id, fileExt)
 }
 
 func (s *Sticker) Fetch(client *http.Client, packid int, isAnimated bool, fn func(r io.Reader) error) error {
